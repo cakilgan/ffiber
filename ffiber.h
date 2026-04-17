@@ -16,6 +16,7 @@ namespace ff {
 namespace util {
 struct allocator_malloc {
     static void *allocate(size_t size) { return malloc(size); }
+    static void deallocate(void *ptr) { free(ptr); }
 };
 } // namespace util
 
@@ -54,8 +55,11 @@ struct scheduler {
         for (size_t i = 0; i < fiber_count; i++) {
             _fibers[i] =
                 fiber{context{nullptr}, job{nullptr, nullptr}, fiber::idle};
-            context::make(&_fibers[i].cx, Allocator::allocate(stack_size),
-                          stack_size, fiber_entry_point);
+
+            void *allocated = Allocator::allocate(stack_size);
+            _stacks.push_back(allocated);
+            context::make(&_fibers[i].cx, allocated, stack_size,
+                          fiber_entry_point);
             _fibers[i].ix = (int)i;
             _free_fibers.push_back((int)i);
         }
@@ -75,12 +79,18 @@ struct scheduler {
     void add_waiting(int ix) { _waiting.push_back(ix); }
     void add_free_fiber(int ix) { _free_fibers.push_back(ix); }
 
+    template <typename Allocator = util::allocator_malloc> void shutdown_all() {
+        for (void *s : _stacks)
+            Allocator::deallocate(s);
+    }
+
   private:
     context _context;
     std::vector<fiber> _fibers;
     std::vector<int> _yielded;
     std::vector<int> _waiting;
     std::vector<int> _free_fibers;
+    std::vector<void *> _stacks;
     std::queue<job> _jobs;
 };
 
@@ -111,6 +121,12 @@ inline void step() { globals::current_scheduler->step(); }
 void yield();
 void wait(counter *c);
 
+template <typename Allocator = util::allocator_malloc> inline void shutdown() {
+    globals::current_scheduler->shutdown_all<Allocator>();
+    delete globals::current_scheduler;
+    globals::current_scheduler = nullptr;
+    globals::current_fiber = nullptr;
+}
 } // namespace ff
 
 #endif // FFIBER_H
