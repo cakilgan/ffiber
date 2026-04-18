@@ -129,4 +129,10 @@ template <typename Allocator = util::allocator_malloc> inline void shutdown() {
 }
 } // namespace ff
 
+#define FF_JOB(x, setdata)                                                     \
+    {                                                                          \
+        .func = [](void *data) x,                                              \
+        .data = setdata,                                                       \
+    }
+
 #endif // FFIBER_H
