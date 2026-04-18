@@ -14,8 +14,8 @@ Each fiber has its own stack. When a job calls `wait()`, the fiber suspends and 
 ff::counter done;
 
 void my_job(void *data) {
-    // do work
-    done.value.fetch_sub(1);
+    // do work 
+    // decrements counter auto now.
 }
 
 void my_waiter(void *) {
@@ -59,9 +59,11 @@ Stack memory usage: `fiber_count * stack_size`. 128 fibers at 64KB = 8MB.
 ## Custom allocator
 
 ```cpp
+// use allocator type that uses virtual memory to protect from segfaults
+// this way is deprecated now.
 struct my_allocator {
     static void *allocate(size_t size)  { return my_alloc(size); }
-    static void  deallocate(void *ptr)  { my_free(ptr); }
+    static void  deallocate(void *ptr,size_t /*size*/)  { my_free(ptr); }
 };
 
 ff::init<my_allocator>(64, 64 * 1024);
